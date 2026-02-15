@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+    <title>🥟✨ Empanadas Kawaii · responsive + guardado ✨🍰</title>
+    <!-- Chart.js liviano -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- jsPDF + SheetJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Comic Neue', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #fff9f2;
+            color: #553b2f;
+            transition: background 0.3s, color 0.3s;
+            padding: clamp(0.8rem, 3vw, 2rem);
+            background-image: url('data:image/svg+xml;utf8,<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="7" fill="%23ffe0b5" opacity="0.3"/><circle cx="38" cy="35" r="10" fill="%23fdd0b2" opacity="0.3"/><text x="42" y="18" font-size="18" fill="%23ffc1a1" opacity="0.2">🥟</text><text x="5" y="42" font-size="20" fill="%23ffb6b9" opacity="0.2">🍰</text></svg>');
+            background-size: 150px 150px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* modo oscuro responsivo */
+        body.dark-mode {
+            background: #2f2a24;
+            color: #f0e5d8;
+            background-image: url('data:image/svg+xml;utf8,<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="7" fill="%23967a56" opacity="0.3"/><circle cx="38" cy="35" r="10" fill="%238d6b4c" opacity="0.3"/><text x="42" y="18" font-size="18" fill="%23b2967a" opacity="0.2">🥟</text><text x="5" y="42" font-size="20" fill="%23b89f88" opacity="0.2">🍰</text></svg>');
+        }
+
+        body.dark-mode .recipe-panel,
+        body.dark-mode .tab-panel,
+        body.dark-mode .chart-container,
+        body.dark-mode .prod-toolbar,
+        body.dark-mode .venta-diaria-box,
+        body.dark-mode .produccion-dia-receta,
+        body.dark-mode .precio-venta-box,
+        body.dark-mode .results-mini {
+            background: #3e362f;
+            border-color: #6b5847;
+            color: #f0e5d8;
+        }
+
+        body.dark-mode .ingredient-row {
+            background: #4f453b;
+            border-color: #7d6b58;
+        }
+
+        body.dark-mode .ingredient-row input {
+            color: #f7e9dc;
+            background: #5e5145;
+            border-color: #b2977e;
+        }
+
+        /* botón flotante tema (siempre visible) */
+        .theme-toggle {
+            position: sticky;
+            top: 10px;
+            float: right;
+            background: #ffe9d4;
+            border: 3px solid #fbbb8b;
+            border-radius: 60px;
+            padding: 0.5rem 1rem;
+            font-size: 2rem;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #d49c6b;
+            z-index: 999;
+            transition: 0.1s;
+            width: fit-content;
+            margin-bottom: 0.5rem;
+        }
+        .theme-toggle:active { transform: translateY(4px); box-shadow: 0 2px 0 #d49c6b; }
+        body.dark-mode .theme-toggle { background: #5b4e40; border-color: #c9a77b; box-shadow: 0 6px 0 #7b623b; }
+
+        h1 {
+            font-size: clamp(1.8rem, 6vw, 2.8rem);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            color: #b45f3a;
+            text-shadow: 3px 3px 0 #ffdbb5;
+            margin: 0.5rem 0 1.5rem 0;
+            clear: both;
+        }
+        body.dark-mode h1 { color: #f3cca3; text-shadow: 3px 3px 0 #7a5b3c; }
+
+        .dashboard {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* PANEL RECETA 100% responsivo */
+        .recipe-panel {
+            flex: 1 1 350px;
+            max-width: 100%;
+            background: #fffaf5;
+            border-radius: 50px 50px 30px 50px;
+            padding: 1.8rem 1.2rem;
+            box-shadow: 0 12px 0 #ecc6a8, 0 12px 20px -8px rgba(120,70,40,0.2);
+            border: 4px solid #ffcfaa;
+            position: relative;
+        }
+
+        .ingredient-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.8rem;
+            align-items: center;
+            background: #fff3e7;
+            padding: 0.6rem 0.6rem 0.6rem 1rem;
+            border-radius: 50px;
+            border: 3px solid #fec89a;
+            box-shadow: 0 4px 0 #d49464;
+            flex-wrap: wrap;
+        }
+        .ingredient-row input {
+            border: none;
+            background: #fff0df;
+            padding: 0.5rem 0.6rem;
+            border-radius: 40px;
+            font-size: 0.9rem;
+            border: 2px dashed #febc7e;
+            min-width: 60px;
+            flex: 1 1 80px;
+        }
+        .ing-name { flex: 3 1 120px; }
+
+        .add-btn {
+            background: #fdebd0;
+            border: 4px dotted #f3ac7a;
+            color: #9d603a;
+            padding: 0.7rem 1.5rem;
+            border-radius: 60px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin: 0.5rem 0 1.2rem;
+            box-shadow: 0 7px 0 #d69d6b;
+            width: fit-content;
+        }
+
+        .produccion-dia-receta {
+            background: #fee3cb;
+            border-radius: 40px;
+            padding: 1rem 1.2rem;
+            margin: 0 0 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            border: 3px solid #feb27b;
+        }
+
+        .venta-diaria-box {
+            background: #ffe2cf;
+            border-radius: 35px;
+            padding: 1.2rem 1.2rem;
+            border: 3px solid #ffb480;
+            box-shadow: 0 7px 0 #d48d5a;
+            margin-bottom: 1.2rem;
+        }
+        .fila-venta {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin-top: 0.6rem;
+        }
+        .fila-venta select, .fila-venta input {
+            border-radius: 40px;
+            padding: 0.6rem 1rem;
+            border: 2px solid #f09f6b;
+            background: white;
+            flex: 1 1 120px;
+        }
+
+        .precio-venta-box {
+            background: #f7e0cb;
+            border-radius: 40px;
+            padding: 1rem 1.2rem;
+            border: 4px solid #fcca9c;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .results-mini {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 0.8rem;
+            background: #f8eeda;
+            border-radius: 40px;
+            padding: 1.5rem 1rem;
+            border: 4px solid #fdc78e;
+            margin-top: 1rem;
+        }
+
+        /* contenedor pestañas */
+        .tabs-container {
+            flex: 3 1 550px;
+            min-width: 280px;
+            width: 100%;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 0.3rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.5rem;
+        }
+        .tab-btn {
+            background: #fed5b3;
+            border: 3px solid #ffad6b;
+            padding: 0.7rem 1.2rem;
+            border-radius: 40px 40px 0 0;
+            font-weight: 700;
+            color: #5e3f2a;
+            font-size: clamp(0.8rem, 2.5vw, 1rem);
+            flex: 1 1 auto;
+        }
+
+        .tab-panel {
+            background: #fffcf5;
+            border-radius: 0 30px 30px 30px;
+            border: 4px solid #fec89a;
+            padding: 1.5rem 1rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* tabla scroll horizontal en móvil */
+        table {
+            min-width: 600px;
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 4px;
+        }
+        @media (max-width: 600px) {
+            table { min-width: 520px; }
+        }
+        th, td {
+            padding: 0.6rem 0.4rem;
+            white-space: nowrap;
+        }
+        td { background: #fff9ef; border-radius: 16px; border: 2px solid #fec6a0; }
+        body.dark-mode td { background: #504434; border-color: #947b63; }
+
+        .prod-toolbar {
+            background: #ffdbbf;
+            border-radius: 80px;
+            padding: 0.7rem 1.2rem;
+            border: 4px solid #fea55c;
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .btn-export, .btn-warning {
+            padding: 0.5rem 1.2rem;
+            border-radius: 40px;
+            font-weight: 600;
+            border: 2px solid;
+            background: #f5c6a0;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        .view-toggle {
+            display: flex;
+            gap: 0.2rem;
+            background: #e2d6cb;
+            padding: 0.2rem;
+            border-radius: 40px;
+            margin-left: auto;
+        }
+        .view-option {
+            padding: 0.4rem 1.2rem;
+            border-radius: 40px;
+            border: none;
+            background: transparent;
+            font-weight: 500;
+        }
+
+        .chart-container {
+            background: #fffbf0;
+            border-radius: 50px;
+            padding: 1.5rem 0.8rem 0.8rem;
+            border: 5px solid #ffc28c;
+            margin-top: 2rem;
+            width: 100%;
+        }
+        canvas { max-height: 250px; width: 100% !important; }
+
+        .sticker, .sticker2 {
+            display: none; /* se ven bien, pero para mobile no estorban */
+        }
+        @media (min-width: 900px) {
+            .sticker { display: block; position: fixed; bottom: 15px; left: 15px; font-size: 2.5rem; opacity: 0.4; pointer-events: none; z-index: 0; }
+            .sticker2 { display: block; position: fixed; bottom: 80px; right: 15px; font-size: 3rem; opacity: 0.3; pointer-events: none; }
+        }
+
+        .footer-info { font-size: 0.8rem; text-align: center; margin-top: 2rem; }
+    </style>
+</head>
+<body>
+    <div class="theme-toggle" id="themeToggle" title="modo kawaii oscuro/claro">🌞</div>
+    <div class="sticker">🥟🧁🍰🥧🍪</div>
+    <div class="sticker2">👩‍🍳✨🥄</div>
+
+<h1>🍬 Pastelería Kawaii · Empanadas de Guayaba 🍬</h1>
+<div class="dashboard">
+    <!-- panel receta -->
+    <div class="recipe-panel">
+        <h2>📋 RECETA ✨</h2>
+        <div id="ingredientes-container"></div>
+        <button class="add-btn" id="add-ingrediente">➕ añadir ingrediente</button>
+
+        <div class="produccion-dia-receta">
+            <label>🥟 Producidas hoy:</label>
+            <input type="number" id="producidasHoy" min="0" step="1" value="150">
+        </div>
+
+        <div class="venta-diaria-box">
+            <div style="font-weight:700;">📝 Registrar venta del día</div>
+            <div class="fila-venta">
+                <select id="diaVentaSelect">
+                    <option value="2025-02-17">2025-02-17 (hoy)</option>
+                    <option value="2025-02-16">2025-02-16</option>
+                    <option value="2025-02-15">2025-02-15</option>
+                    <option value="2025-02-14">2025-02-14</option>
+                </select>
+                <input type="number" id="vendidasInput" placeholder="vendidas" value="140">
+                <button class="btn-registrar" id="registrarVentaBtn">Registrar</button>
+            </div>
+        </div>
+
+        <div class="precio-venta-box">
+            <label>💰 Precio venta:</label>
+            <input type="number" id="precioVenta" step="0.1" value="2.50">
+        </div>
+
+        <div class="fecha-actual" id="fechaDisplay" style="background:#fbe6d2; border-radius:40px; padding:0.4rem 1rem; display:inline-block;"></div>
+        <div class="results-mini">
+            <div class="result-card"><div class="label">🥟 Costo unitario</div><div class="value" id="costoUnitarioDisplay">$0.00</div></div>
+            <div class="result-card"><div class="label">🏷️ Precio</div><div class="value" id="precioVentaDisplay">$2.50</div></div>
+            <div class="result-card"><div class="label">📈 Ganancia/ud</div><div class="value" id="gananciaUnidadDisplay">$0.00</div></div>
+            <div class="result-card"><div class="label">📅 Fecha</div><div class="value" id="fechaValue"></div></div>
+        </div>
+    </div>
+
+    <!-- pestañas + gráfico -->
+    <div class="tabs-container">
+        <div class="tab-buttons">
+            <button class="tab-btn active" data-tab="costos">🗂️ Base costos</button>
+            <button class="tab-btn" data-tab="produccion">📊 Control producción</button>
+            <button class="tab-btn" data-tab="resultados">📑 Estado resultados</button>
+        </div>
+
+        <!-- Pestaña costos -->
+        <div class="tab-panel" id="tab-costos" style="display: block;">
+            <h2>📁 Bases de costos 🧾</h2>
+            <div style="overflow-x: auto;">
+                <table><thead><tr><th>Ingrediente</th><th>Costo x unidad</th><th>Rendimiento</th><th>Costo x empanada</th></tr></thead><tbody id="costosBody"></tbody>
+                <tfoot><tr><td colspan="3"><strong>TOTAL COSTO UNITARIO</strong></td><td id="totalCostoUnitario" class="numero">$0.00</td></tr></tfoot></table>
+            </div>
+        </div>
+
+        <!-- Pestaña producción (export) -->
+        <div class="tab-panel" id="tab-produccion" style="display: none;">
+            <h2>📆 Control producción</h2>
+            <div class="prod-toolbar">
+                <button class="btn-warning" id="resetProduccion">🗑️ Reset</button>
+                <button class="btn-export" id="exportPDF">📄 PDF</button>
+                <button class="btn-export" id="exportCSV">📊 CSV</button>
+                <div class="view-toggle">
+                    <button class="view-option active" data-view="dia">📅 Día</button>
+                    <button class="view-option" data-view="mes">📆 Mes</button>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <div id="tablaProduccionContainer"></div>
+            </div>
+            <div style="margin-top:1rem; display: flex; gap: 1.5rem; flex-wrap: wrap;">
+                <span>📈 Food cost %: <span id="foodCostPct">0.0%</span></span>
+                <span>🥟 Vendidas: <span id="totalVendidasPeriodo">0</span></span>
+                <span>⚖️ Punto equilibrio: <span id="puntoEquilibrioUds">0</span> uds</span>
+            </div>
+        </div>
+
+        <!-- Pestaña resultados -->
+        <div class="tab-panel" id="tab-resultados" style="display: none;">
+            <h2>📄 Estado resultados (mensual)</h2>
+            <div style="overflow-x: auto;">
+                <table style="min-width: 300px;"><tr><td><strong>INGRESOS</strong></td><td id="ingresoResult">$0.00</td></tr>
+                <tr><td><strong>COSTOS DIRECTOS</strong></td><td id="costoDirectoResult">$0.00</td></tr>
+                <tr><td><strong>UTILIDAD BRUTA</strong></td><td id="utilidadBrutaResult">$0.00</td></tr>
+                <tr><td><strong>GANANCIAS (netas)</strong></td><td id="gananciaNetaResult">$0.00</td></tr></table>
+            </div>
+            <div class="utilidad-neta-box" style="margin-top:1rem;"><span>Margen neto</span> <span id="margenNetoPct">0.0%</span></div>
+        </div>
+
+        <!-- GRÁFICO -->
+        <div class="chart-container">
+            <canvas id="ventasChart" style="height:260px; width:100%;"></canvas>
+        </div>
+    </div>
+</div>
+<div class="footer-info">✨ datos guardados automáticamente · diseño adaptable ✨</div>
+
+<script>
+    (function() {
+        // ---------- CARGA Y GUARDADO EN LOCALSTORAGE ----------
+        let ingredientes, produccionDia, produccionMes;
+
+        function cargarDesdeStorage() {
+            // ingredientes
+            const storedIng = localStorage.getItem('kawaii_ingredientes');
+            if (storedIng) {
+                ingredientes = JSON.parse(storedIng);
+            } else {
+                ingredientes = [
+                    { nombre: 'Masa hojaldre', costoUnidad: 5.0, rendimiento: 20 },
+                    { nombre: 'Pasta guayaba', costoUnidad: 3.5, rendimiento: 25 },
+                    { nombre: 'Azúcar', costoUnidad: 1.2, rendimiento: 100 },
+                    { nombre: 'Huevo', costoUnidad: 0.2, rendimiento: 10 },
+                    { nombre: 'Bolsa/embalaje', costoUnidad: 0.05, rendimiento: 1 },
+                    { nombre: 'Gas/energía', costoUnidad: 0.02, rendimiento: 1 }
+                ];
+            }
+
+            const storedDia = localStorage.getItem('kawaii_produccionDia');
+            produccionDia = storedDia ? JSON.parse(storedDia) : [
+                { fecha: '2025-02-10', prod: 145, vend: 140 },
+                { fecha: '2025-02-11', prod: 158, vend: 152 },
+                { fecha: '2025-02-12', prod: 162, vend: 158 },
+                { fecha: '2025-02-13', prod: 137, vend: 130 },
+                { fecha: '2025-02-14', prod: 180, vend: 175 },
+                { fecha: '2025-02-15', prod: 166, vend: 160 },
+                { fecha: '2025-02-16', prod: 149, vend: 145 }
+            ];
+
+            const storedMes = localStorage.getItem('kawaii_produccionMes');
+            produccionMes = storedMes ? JSON.parse(storedMes) : [
+                { fecha: 'Nov 2024', prod: 4300, vend: 4100 },
+                { fecha: 'Dic 2024', prod: 5200, vend: 5000 },
+                { fecha: 'Ene 2025', prod: 4800, vend: 4600 },
+                { fecha: 'Feb 2025', prod: 4950, vend: 4800 }
+            ];
+        }
+
+        function guardarTodo() {
+            localStorage.setItem('kawaii_ingredientes', JSON.stringify(ingredientes));
+            localStorage.setItem('kawaii_produccionDia', JSON.stringify(produccionDia));
+            localStorage.setItem('kawaii_produccionMes', JSON.stringify(produccionMes));
+        }
+
+        cargarDesdeStorage(); // inicial
+
+        let vistaActual = 'dia';
+        let chartInstance = null;
+
+        // Referencias DOM
+        const containerIng = document.getElementById('ingredientes-container');
+        const addBtn = document.getElementById('add-ingrediente');
+        const precioVentaInput = document.getElementById('precioVenta');
+        const fechaDisplay = document.getElementById('fechaDisplay');
+        const fechaValue = document.getElementById('fechaValue');
+        const costoUnitarioSpan = document.getElementById('costoUnitarioDisplay');
+        const precioVentaDisplay = document.getElementById('precioVentaDisplay');
+        const gananciaUnidadSpan = document.getElementById('gananciaUnidadDisplay');
+        const costosBody = document.getElementById('costosBody');
+        const totalCostoUnitarioTd = document.getElementById('totalCostoUnitario');
+        const foodCostPctSpan = document.getElementById('foodCostPct');
+        const totalVendidasPeriodoSpan = document.getElementById('totalVendidasPeriodo');
+        const tablaProduccionContainer = document.getElementById('tablaProduccionContainer');
+        const ingresoResult = document.getElementById('ingresoResult');
+        const costoDirectoResult = document.getElementById('costoDirectoResult');
+        const utilidadBrutaResult = document.getElementById('utilidadBrutaResult');
+        const gananciaNetaResult = document.getElementById('gananciaNetaResult');
+        const margenNetoPct = document.getElementById('margenNetoPct');
+        const producidasHoyInput = document.getElementById('producidasHoy');
+        const diaVentaSelect = document.getElementById('diaVentaSelect');
+        const vendidasInput = document.getElementById('vendidasInput');
+        const registrarVentaBtn = document.getElementById('registrarVentaBtn');
+        const resetBtn = document.getElementById('resetProduccion');
+        const puntoEqSpan = document.getElementById('puntoEquilibrioUds');
+
+        // ---------- render ingredientes ----------
+        function renderIngredientes() {
+            containerIng.innerHTML = '';
+            ingredientes.forEach((ing, index) => {
+                const row = document.createElement('div');
+                row.className = 'ingredient-row';
+                row.innerHTML = `
+                    <input type="text" class="ing-name" value="${ing.nombre}" data-index="${index}" data-field="nombre">
+                    <input type="number" class="ing-cost" step="0.01" min="0" value="${ing.costoUnidad}" data-index="${index}" data-field="costoUnidad">
+                    <input type="number" class="ing-yield" step="0.1" min="0.1" value="${ing.rendimiento}" data-index="${index}" data-field="rendimiento">
+                    <button class="remove-btn" data-index="${index}">✕</button>
+                `;
+                containerIng.appendChild(row);
+            });
+            document.querySelectorAll('.ing-name, .ing-cost, .ing-yield').forEach(input => {
+                input.addEventListener('input', function(e) {
+                    const idx = this.dataset.index;
+                    const field = this.dataset.field;
+                    if (field === 'nombre') ingredientes[idx].nombre = this.value;
+                    if (field === 'costoUnidad') ingredientes[idx].costoUnidad = parseFloat(this.value) || 0;
+                    if (field === 'rendimiento') ingredientes[idx].rendimiento = parseFloat(this.value) || 0.1;
+                    guardarTodo();
+                    actualizarTodo();
+                });
+            });
+            document.querySelectorAll('.remove-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    const idx = this.dataset.index;
+                    ingredientes.splice(idx, 1);
+                    renderIngredientes();
+                    guardarTodo();
+                    actualizarTodo();
+                });
+            });
+        }
+        addBtn.addEventListener('click', () => {
+            ingredientes.push({ nombre: 'Nuevo', costoUnidad: 0.5, rendimiento: 10 });
+            renderIngredientes();
+            guardarTodo();
+            actualizarTodo();
+        });
+
+        function calcularCostoUnitario() {
+            return ingredientes.reduce((acc, ing) => acc + (ing.costoUnidad / ing.rendimiento), 0);
+        }
+
+        function calcularPuntoEquilibrio() {
+            const costoU = calcularCostoUnitario();
+            const precio = parseFloat(precioVentaInput.value) || 0;
+            const margen = precio - costoU;
+            if (margen <= 0) return 0;
+            return Math.ceil(1300 / margen);
+        }
+
+        // Render tabla producción
+        function renderTablaProduccion() {
+            const costoU = calcularCostoUnitario();
+            const precio = parseFloat(precioVentaInput.value) || 0;
+            let data = vistaActual === 'dia' ? produccionDia : produccionMes;
+            let tablaHtml = '<table><thead><tr><th>Fecha</th><th>Producidas</th><th>Vendidas</th><th>Precio</th><th>Ventas ($)</th><th>Costo prod ($)</th></tr></thead><tbody>';
+            let totalVendidas = 0, totalVentasVal = 0, totalCostoVal = 0;
+
+            if (data.length === 0) {
+                tablaHtml += '<tr><td colspan="6" style="text-align:center;">✨ sin registros ✨</td></tr>';
+            } else {
+                data.forEach(item => {
+                    const vend = item.vend;
+                    const ventas = vend * precio;
+                    const costoProd = vend * costoU;
+                    totalVendidas += vend;
+                    totalVentasVal += ventas;
+                    totalCostoVal += costoProd;
+                    tablaHtml += `<tr><td>${item.fecha}</td><td class="numero">${item.prod}</td><td class="numero">${vend}</td>
+                                  <td class="numero">$${precio.toFixed(2)}</td><td class="numero">$${ventas.toFixed(2)}</td>
+                                  <td class="numero">$${costoProd.toFixed(2)}</td></tr>`;
+                });
+            }
+            tablaHtml += '</tbody></table>';
+            tablaProduccionContainer.innerHTML = tablaHtml;
+
+            totalVendidasPeriodoSpan.innerText = totalVendidas;
+            foodCostPctSpan.innerText = (totalVentasVal > 0 ? (totalCostoVal / totalVentasVal) * 100 : 0).toFixed(1) + '%';
+            puntoEqSpan.innerText = calcularPuntoEquilibrio();
+
+            // resultados estado (mes)
+            const dataMes = produccionMes.length ? produccionMes : [];
+            let ventasMes = 0, costosMes = 0;
+            dataMes.forEach(m => { ventasMes += m.vend * precio; costosMes += m.vend * costoU; });
+            const utilidadBruta = ventasMes - costosMes;
+            const gananciaNeta = utilidadBruta - 1300;
+            ingresoResult.innerText = `$${ventasMes.toFixed(2)}`;
+            costoDirectoResult.innerText = `$${costosMes.toFixed(2)}`;
+            utilidadBrutaResult.innerText = `$${utilidadBruta.toFixed(2)}`;
+            gananciaNetaResult.innerText = `$${gananciaNeta.toFixed(2)}`;
+            margenNetoPct.innerText = (ventasMes > 0 ? (gananciaNeta/ventasMes)*100 : 0).toFixed(1) + '%';
+
+            actualizarGrafico(data, calcularPuntoEquilibrio());
+        }
+
+        function actualizarGrafico(data, puntoEq) {
+            const ctx = document.getElementById('ventasChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            const labels = data.map(d => d.fecha);
+            const ventasData = data.map(d => d.vend);
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Vendidas', data: ventasData, borderColor: '#e38b5f', backgroundColor: '#ffdbb5', tension: 0.2 },
+                        { label: 'Punto equilibrio', data: Array(data.length).fill(puntoEq), borderColor: '#c65d4a', borderDash: [8, 6], pointRadius: 0, borderWidth: 3 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: true }
+            });
+        }
+
+        function resetProduccionCompleto() {
+            produccionDia = [];
+            produccionMes = [];
+            guardarTodo();
+            renderTablaProduccion();
+        }
+
+        function registrarVenta() {
+            const fechaSel = diaVentaSelect.value;
+            const vendidas = parseInt(vendidasInput.value, 10) || 0;
+            const producidas = parseInt(producidasHoyInput.value, 10) || 0;
+            if (!fechaSel) return;
+            const index = produccionDia.findIndex(item => item.fecha === fechaSel);
+            if (index !== -1) {
+                produccionDia[index].vend = vendidas;
+                produccionDia[index].prod = producidas;
+            } else {
+                produccionDia.push({ fecha: fechaSel, prod: producidas, vend: vendidas });
+            }
+            const mapaMeses = {};
+            produccionDia.forEach(d => {
+                const mes = d.fecha.substring(0,7);
+                if (!mapaMeses[mes]) mapaMeses[mes] = { prod:0, vend:0 };
+                mapaMeses[mes].prod += d.prod;
+                mapaMeses[mes].vend += d.vend;
+            });
+            produccionMes = Object.keys(mapaMeses).map(mes => ({ fecha: mes, prod: mapaMeses[mes].prod, vend: mapaMeses[mes].vend }));
+            guardarTodo();
+            renderTablaProduccion();
+        }
+
+        // Exportaciones con campos completos
+        function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text("Producción de empanadas (kawaii)", 10, 10);
+            let y = 20;
+            const data = vistaActual === 'dia' ? produccionDia : produccionMes;
+            const precio = parseFloat(precioVentaInput.value) || 0;
+            const costoU = calcularCostoUnitario();
+            data.forEach((item) => {
+                const ventas$ = (item.vend * precio).toFixed(2);
+                const costo$ = (item.vend * costoU).toFixed(2);
+                doc.text(`${item.fecha} | prod:${item.prod} vend:${item.vend} | $${ventas$} / $${costo$}`, 10, y);
+                y += 7;
+                if (y > 280) { doc.addPage(); y = 20; }
+            });
+            doc.save("produccion_kawaii.pdf");
+        }
+
+        function exportCSV() {
+            const data = vistaActual === 'dia' ? produccionDia : produccionMes;
+            const precio = parseFloat(precioVentaInput.value) || 0;
+            const costoU = calcularCostoUnitario();
+            const enhanced = data.map(item => ({
+                Fecha: item.fecha,
+                Producidas: item.prod,
+                Vendidas: item.vend,
+                Precio: precio.toFixed(2),
+                Ventas: (item.vend * precio).toFixed(2),
+                CostoProd: (item.vend * costoU).toFixed(2)
+            }));
+            const ws = XLSX.utils.json_to_sheet(enhanced);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Produccion");
+            XLSX.writeFile(wb, "produccion_kawaii.csv");
+        }
+
+        function actualizarTodo() {
+            const costoUnitario = calcularCostoUnitario();
+            const precioVenta = parseFloat(precioVentaInput.value) || 0;
+            const today = new Date();
+            fechaDisplay.innerText = `📅 ${today.toLocaleDateString('es-ES')}`;
+            fechaValue.innerText = today.getDate();
+            costoUnitarioSpan.innerText = `$${costoUnitario.toFixed(2)}`;
+            precioVentaDisplay.innerText = `$${precioVenta.toFixed(2)}`;
+            gananciaUnidadSpan.innerText = `$${(precioVenta - costoUnitario).toFixed(2)}`;
+
+            costosBody.innerHTML = '';
+            ingredientes.forEach(ing => {
+                const costoXEmp = (ing.rendimiento > 0) ? (ing.costoUnidad / ing.rendimiento).toFixed(4) : 0;
+                costosBody.innerHTML += `<tr><td>${ing.nombre}</td><td class="numero">$${ing.costoUnidad.toFixed(2)}</td><td class="numero">${ing.rendimiento}</td><td class="numero">$${parseFloat(costoXEmp).toFixed(2)}</td></tr>`;
+            });
+            totalCostoUnitarioTd.innerText = `$${costoUnitario.toFixed(2)}`;
+            renderTablaProduccion();
+        }
+
+        // Eventos
+        resetBtn.addEventListener('click', resetProduccionCompleto);
+        registrarVentaBtn.addEventListener('click', registrarVenta);
+        document.getElementById('exportPDF').addEventListener('click', exportPDF);
+        document.getElementById('exportCSV').addEventListener('click', exportCSV);
+
+        const viewOptions = document.querySelectorAll('.view-option');
+        viewOptions.forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                viewOptions.forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                vistaActual = opt.dataset.view;
+                renderTablaProduccion();
+            });
+        });
+
+        precioVentaInput.addEventListener('input', () => { guardarTodo(); actualizarTodo(); });
+        producidasHoyInput.addEventListener('input', guardarTodo);
+
+        renderIngredientes();
+        actualizarTodo();
+
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const panels = { costos: document.getElementById('tab-costos'), produccion: document.getElementById('tab-produccion'), resultados: document.getElementById('tab-resultados') };
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tabBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const tab = btn.dataset.tab;
+                Object.keys(panels).forEach(key => panels[key].style.display = 'none');
+                panels[tab].style.display = 'block';
+                if (tab === 'produccion') renderTablaProduccion();
+            });
+        });
+
+        // tema claro/oscuro
+        const themeToggle = document.getElementById('themeToggle');
+        themeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            themeToggle.innerText = document.body.classList.contains('dark-mode') ? '🌙' : '🌞';
+        });
+    })();
+</script>
+</body>
+</html>
